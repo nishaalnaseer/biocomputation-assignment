@@ -67,16 +67,17 @@ def train_select_best(individuals, dataset: PreprocessingDataSet, best_count: in
 
 def mutate(individual, mutation_rate):
     rate_check = random.randint(0, 100)
+
     if rate_check < mutation_rate:
-        for index, allele in enumerate(individual):
-            diff = random.randint(-5, 5) * 0.01
+        indexes = [x for x in range(len(individual))]
 
-            new_val = allele + diff
+        randomised = random.sample(indexes, 2)
 
-            if new_val > 1:
-                new_val = 1
-            elif new_val < -1:
-                new_val = -1
+        for index in randomised:
+            allele = individual[index]
+            diff = allele - random.randint(-100, 100) * 0.01
+
+            new_val = diff / 2
 
             individual[index] = new_val
 
@@ -99,15 +100,15 @@ def genetic_recombination(
     child1 = deepcopy(parent1)
     child2 = deepcopy(parent2)
 
-    # child1 = mutate(_parent1, 5)
-    # child2 = mutate(_parent2, 5)
+    _child1 = mutate(child1, 30)
+    _child2 = mutate(child2, 30)
 
     for allele_position in allele_positions:
-        swap_holder = child1[allele_position]
-        child1[allele_position] = child2[allele_position]
-        child2[allele_position] = swap_holder
+        swap_holder = _child1[allele_position]
+        _child1[allele_position] = _child2[allele_position]
+        _child2[allele_position] = swap_holder
 
-    return child1, child2,
+    return _child1, _child2,
 
 
 def breed(population):
@@ -188,7 +189,7 @@ def main():
     _children_holder = []
     sums = []
 
-    for _ in range(100):
+    for _ in range(1000):
         best = train_select_best(population, dataset, 10, sums)
 
         for child in best:
@@ -196,16 +197,12 @@ def main():
 
         population = breed(best)
 
-    final_run = train_select_best(population, dataset, 10, sums)
-    for child in final_run:
-        _children_holder.append(child)
-
-    final = train_select_best(_children_holder, dataset, 1, sums)
+    final_run = train_select_best(population, dataset, 1, sums)
 
     _min = min(sums)
     _max = max(sums)
 
-    best = final[0]
+    best = final_run[0]
 
     right, wrong = test(best, dataset, _min, _max)
 

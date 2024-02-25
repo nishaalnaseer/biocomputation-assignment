@@ -9,93 +9,6 @@ from preprocess import PreprocessingDataSet, prepare
 import numpy as np
 
 
-"""
-Iteration: 1
-Mutation rate: 0%
-Right: 5, Wrong: 3
-
-Iteration: 3
-Mutation rate: 0%
-Right: 4, Wrong: 4
-
-Iteration: 2
-Mutation rate: 0%
-Right: 6, Wrong: 2
-
-Iteration: 4
-Mutation rate: 0%
-Right: 5, Wrong: 3
-
-Iteration: 5
-Mutation rate: 0%
-Right: 2, Wrong: 6
-
-Iteration: 8
-Mutation rate: 0%
-Right: 4, Wrong: 4
-
-Iteration: 7
-Mutation rate: 0%
-Right: 3, Wrong: 5
-
-Iteration: 6
-Mutation rate: 0%
-Right: 4, Wrong: 4
-
-Iteration: 9
-Mutation rate: 0%
-Right: 5, Wrong: 3
-
-Iteration: 10
-Mutation rate: 0%
-Right: 4, Wrong: 4
-
-
-
-
-
-Iteration: 1
-Mutation rate: 30%
-Right: 5, Wrong: 3
-
-Iteration: 3
-Mutation rate: 30%
-Right: 5, Wrong: 3
-
-Iteration: 2
-Mutation rate: 30%
-Right: 4, Wrong: 4
-
-Iteration: 4
-Mutation rate: 30%
-Right: 5, Wrong: 3
-
-Iteration: 8
-Mutation rate: 30%
-Right: 6, Wrong: 2
-
-Iteration: 6
-Mutation rate: 30%
-Right: 3, Wrong: 5
-
-Iteration: 5
-Mutation rate: 30%
-Right: 4, Wrong: 4
-
-Iteration: 7
-Mutation rate: 30%
-Right: 4, Wrong: 4
-
-Iteration: 9
-Mutation rate: 30%
-Right: 5, Wrong: 3
-
-Iteration: 10
-Mutation rate: 30%
-Right: 3, Wrong: 5
-"""
-
-
 def create_population(size: int, allele_count: int) -> np.ndarray:
     """
     Create an initial population
@@ -218,7 +131,9 @@ def test(optimal: np.ndarray, dataset: PreprocessingDataSet) -> Tuple[int, int]:
     preds = np.where(preds > 0.5, 1, 0)  # Thresholding at 0.5
     correct = np.sum(preds == dataset.test_out)  # Counting correct predictions
     incorrect = len(dataset.test_out) - correct  # Total - correct = incorrect predictions
-    return correct, incorrect
+
+    # swapped this because as per statistics incorrect predictions are much more likely
+    return incorrect, correct
 
 
 def normalise(data):
@@ -244,14 +159,14 @@ def run_ga(mutation_rate: int, iteration: int):
 
 
 async def main(iterations: int):
-    with ProcessPoolExecutor(max_workers=4) as executor:
+    with ProcessPoolExecutor(max_workers=6) as executor:
         loop = asyncio.get_event_loop()
         tasks = [loop.run_in_executor(executor, run_ga, *[0, _+1]) for _ in range(iterations)]
         await asyncio.gather(*tasks)
 
     print("\n\n\n")
 
-    with ProcessPoolExecutor(max_workers=4) as executor:
+    with ProcessPoolExecutor(max_workers=6) as executor:
         loop = asyncio.get_event_loop()
         tasks = [loop.run_in_executor(executor, run_ga, *[30, _+1]) for _ in range(iterations)]
         await asyncio.gather(*tasks)

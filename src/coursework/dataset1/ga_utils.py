@@ -1,4 +1,6 @@
+import asyncio
 import random
+from concurrent.futures import ProcessPoolExecutor
 from copy import deepcopy
 from typing import List, Tuple
 import math
@@ -71,11 +73,12 @@ def mutate(individual, mutation_rate):
     if rate_check < mutation_rate:
         indexes = [x for x in range(len(individual))]
 
-        randomised = random.sample(indexes, 2)
+        randomised = random.sample(indexes, len(individual))
 
         for index in randomised:
             allele = individual[index]
-            diff = allele - random.randint(-100, 100) * 0.01
+            randomized = random.randint(-100, 100) * 0.01
+            diff = allele - randomized
 
             new_val = diff / 2
 
@@ -88,6 +91,7 @@ def genetic_recombination(
         allele_positions: List[int],
         parent1: List[float],
         parent2: List[float],
+        mutation_rate: int
 ) -> tuple[List[float], List[float],]:
     """
     Genetic recombination of selected alleles between two parents
@@ -100,8 +104,8 @@ def genetic_recombination(
     child1 = deepcopy(parent1)
     child2 = deepcopy(parent2)
 
-    _child1 = mutate(child1, 30)
-    _child2 = mutate(child2, 30)
+    _child1 = mutate(child1, mutation_rate)
+    _child2 = mutate(child2, mutation_rate)
 
     for allele_position in allele_positions:
         swap_holder = _child1[allele_position]
@@ -111,7 +115,7 @@ def genetic_recombination(
     return _child1, _child2,
 
 
-def breed(population):
+def breed(population, mutation_rate):
     length = len(population[0])
     indexes = [x for x in range(length)]
     children = []
@@ -129,7 +133,7 @@ def breed(population):
 
             swap_points = random.sample(indexes, val)
 
-            child1, child2 = genetic_recombination(swap_points, parent1, parent2)
+            child1, child2 = genetic_recombination(swap_points, parent1, parent2, mutation_rate)
 
             children.append(child1)
             children.append(child2)
@@ -183,19 +187,19 @@ def normalise(data):
     return normalized_data
 
 
-def main():
+def run_ga(mutation_rate: int, iteration: int):
     dataset = prepare()
     population = create_population(1000, 5)
     _children_holder = []
     sums = []
 
-    for _ in range(1000):
+    for _ in range(2000):
         best = train_select_best(population, dataset, 10, sums)
 
         for child in best:
             _children_holder.append(child)
 
-        population = breed(best)
+        population = breed(best, mutation_rate)
 
     final_run = train_select_best(population, dataset, 1, sums)
 
@@ -205,9 +209,25 @@ def main():
     best = final_run[0]
 
     right, wrong = test(best, dataset, _min, _max)
+    print(
+        f"\nIteration: {iteration}\nMutation rate: "
+        f"{mutation_rate}%\nRight: {right}, Wrong: {wrong}"
+    )
 
-    print(right, wrong)
+
+async def main(iterations: int):
+    with ProcessPoolExecutor(max_workers=4) as executor:
+        loop = asyncio.get_event_loop()
+        tasks = [loop.run_in_executor(executor, run_ga, *[0, _+1]) for _ in range(iterations)]
+        await asyncio.gather(*tasks)
+
+        print("\n\n\n")
+
+    with ProcessPoolExecutor(max_workers=4) as executor:
+        loop = asyncio.get_event_loop()
+        tasks = [loop.run_in_executor(executor, run_ga, *[30, _+1]) for _ in range(iterations)]
+        await asyncio.gather(*tasks)
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main(10))

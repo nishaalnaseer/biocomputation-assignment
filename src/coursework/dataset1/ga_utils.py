@@ -2,69 +2,141 @@ import asyncio
 import random
 from concurrent.futures import ProcessPoolExecutor
 from copy import deepcopy
+from datetime import datetime
 from typing import List, Tuple
 import math
 from preprocess import PreprocessingDataSet, prepare
 import numpy as np
 
 
-def create_individual(allele_count: int) -> List[float]:
-    """
-    Create an individual with n number of alleles
-    :param allele_count: number of alleles to generate
-    :return:
-    """
-    return [random.randint(-100, 100) / 100 for _ in range(allele_count)]
+"""
+Iteration: 1
+Mutation rate: 0%
+Right: 5, Wrong: 3
+
+Iteration: 3
+Mutation rate: 0%
+Right: 4, Wrong: 4
+
+Iteration: 2
+Mutation rate: 0%
+Right: 6, Wrong: 2
+
+Iteration: 4
+Mutation rate: 0%
+Right: 5, Wrong: 3
+
+Iteration: 5
+Mutation rate: 0%
+Right: 2, Wrong: 6
+
+Iteration: 8
+Mutation rate: 0%
+Right: 4, Wrong: 4
+
+Iteration: 7
+Mutation rate: 0%
+Right: 3, Wrong: 5
+
+Iteration: 6
+Mutation rate: 0%
+Right: 4, Wrong: 4
+
+Iteration: 9
+Mutation rate: 0%
+Right: 5, Wrong: 3
+
+Iteration: 10
+Mutation rate: 0%
+Right: 4, Wrong: 4
 
 
-def create_population(size: int, length: int) -> List[List[float]]:
+
+
+
+Iteration: 1
+Mutation rate: 30%
+Right: 5, Wrong: 3
+
+Iteration: 3
+Mutation rate: 30%
+Right: 5, Wrong: 3
+
+Iteration: 2
+Mutation rate: 30%
+Right: 4, Wrong: 4
+
+Iteration: 4
+Mutation rate: 30%
+Right: 5, Wrong: 3
+
+Iteration: 8
+Mutation rate: 30%
+Right: 6, Wrong: 2
+
+Iteration: 6
+Mutation rate: 30%
+Right: 3, Wrong: 5
+
+Iteration: 5
+Mutation rate: 30%
+Right: 4, Wrong: 4
+
+Iteration: 7
+Mutation rate: 30%
+Right: 4, Wrong: 4
+
+Iteration: 9
+Mutation rate: 30%
+Right: 5, Wrong: 3
+
+Iteration: 10
+Mutation rate: 30%
+Right: 3, Wrong: 5
+"""
+
+
+def create_population(size: int, allele_count: int) -> np.ndarray:
     """
     Create an initial population
     :param size: the size of the population
-    :param length: the number of alleles each individual has
+    :param allele_count: the number of alleles each individual has
     :return:
     """
-    return [create_individual(length) for _ in range(size)]
+    return np.random.uniform(0, 1, size=(size, allele_count))
 
 
-def calculate_fitness(individual, dataset: PreprocessingDataSet, sums) -> float:
+def calculate_fitness(population: np.ndarray, dataset: PreprocessingDataSet) -> float:
     """
     calculate the fitness of an individual over a dataset
-    :param individual: the individual to be questioned
+    :param population: the population to be questioned
     :param dataset: the dataset to be tested / trained
     :return:
     """
-    _sum = 0
-    for data in dataset.train_inp:
-        for index, point in enumerate(individual):
-            dataset_point = data[index]
-
-            if dataset.train_out[index] == 0:
-                out = -1
-            else:
-                out = 1
-
-            _sum += dataset_point * point * out
-            sums.append(_sum)
-
-    return _sum
+    return np.dot(dataset.train_inp, population.T).sum(axis=1)
 
 
-def train_select_best(individuals, dataset: PreprocessingDataSet, best_count: int, sums: List[float]):
+def train_select_best(population, dataset: PreprocessingDataSet, best_count: int):
     """
     Calculate the fitness of individuals for a dataset and select the best n number of individuals
-    :param sums: the fitness value for all individuals to be normalised
-    :param individuals: our population
+    :param population: our population
     :param dataset: our dataset
     :param best_count: the top n number of individuals to selected
     :return:
     """
-    trained = {
-        index: calculate_fitness(individual, dataset, sums) for index, individual in enumerate(individuals)
-    }
+    stamp = datetime.now().strftime("%Y/%b/%d-%H:%M:%S")
+    fitness = calculate_fitness(population, dataset)
 
-    sorted_trained = {k: v for k, v in sorted(trained.items(), key=lambda item: item[1], reverse=True)}
-    return [individuals[x] for x in sorted_trained][:best_count]
+    # print(f"{stamp} Fitness length = {len(fitness)}")
+    # print(f"{stamp} Population length = {len(population)}")
+
+    try:
+        p = population[np.argsort(fitness)]
+    except IndexError as e:
+        print(f"{stamp} {e}")
+        raise Exception("Lel")
+
+    return p
 
 
 def mutate(individual, mutation_rate):
@@ -95,6 +167,7 @@ def genetic_recombination(
 ) -> tuple[List[float], List[float],]:
     """
     Genetic recombination of selected alleles between two parents
+    :param mutation_rate: the rate at which the population is mutated
     :param allele_positions: the positions of the parents to be swapped
     :param parent1: lists
     :param parent2: lists
@@ -116,28 +189,14 @@ def genetic_recombination(
 
 
 def breed(population, mutation_rate):
-    length = len(population[0])
-    indexes = [x for x in range(length)]
-    children = []
-    for index1, parent1 in enumerate(population):
-        for index2 in range(index1+1, len(population)):
-            parent2 = population[index2]
+    children = deepcopy(population)
+    mutation_prob = mutation_rate / 100
 
-            is_odd = length % 2
-            swap_another = random.randint(0, is_odd)
+    for child in children:
+        if random.random() < mutation_prob:
+            child += np.random.uniform(-0.1, 0.1, size=child.shape)
 
-            if swap_another:
-                val = math.ceil(length / 2)
-            else:
-                val = math.floor(length / 2)
-
-            swap_points = random.sample(indexes, val)
-
-            child1, child2 = genetic_recombination(swap_points, parent1, parent2, mutation_rate)
-
-            children.append(child1)
-            children.append(child2)
-
+    np.clip(children, 0, 1, out=children)
     return children
 
 
@@ -155,29 +214,13 @@ def sigmoid(x):
     return s
 
 
-def test(optimal: List[float], dataset: PreprocessingDataSet, _min, _max):
-    right = 0
-    wrong = 0
-    for index1, _input in enumerate(dataset.test_inp):
-        _sum = 0
-
-        for index, point in enumerate(_input):
-            _sum += optimal[index] * point
-
-        normal = ((_sum - _max) / (_max - _min)) * 2 - 1
-        actual_out = dataset.test_out[index1]
-
-        if normal > 0:
-            predicted = 1
-        else:
-            predicted = 0
-
-        if predicted == actual_out:
-            right += 1
-        else:
-            wrong += 1
-
-    return right, wrong
+def test(optimal: np.ndarray, dataset: PreprocessingDataSet) -> Tuple[int, int]:
+    preds = np.dot(dataset.test_inp, optimal)
+    preds = sigmoid(preds)  # Applying sigmoid activation
+    preds = np.where(preds > 0.5, 1, 0)  # Thresholding at 0.5
+    correct = np.sum(preds == dataset.test_out)  # Counting correct predictions
+    incorrect = len(dataset.test_out) - correct  # Total - correct = incorrect predictions
+    return correct, incorrect
 
 
 def normalise(data):
@@ -191,28 +234,15 @@ def run_ga(mutation_rate: int, iteration: int):
     dataset = prepare()
     population = create_population(1000, 5)
     _children_holder = []
-    sums = []
 
     for _ in range(2000):
-        best = train_select_best(population, dataset, 10, sums)
+        best = train_select_best(population, dataset, 10)
+        children = breed(best, mutation_rate)
+        population = np.vstack((best, children))
 
-        for child in best:
-            _children_holder.append(child)
-
-        population = breed(best, mutation_rate)
-
-    final_run = train_select_best(population, dataset, 1, sums)
-
-    _min = min(sums)
-    _max = max(sums)
-
-    best = final_run[0]
-
-    right, wrong = test(best, dataset, _min, _max)
-    print(
-        f"\nIteration: {iteration}\nMutation rate: "
-        f"{mutation_rate}%\nRight: {right}, Wrong: {wrong}"
-    )
+    final_run = train_select_best(population, dataset, 1)[0]
+    right, wrong = test(final_run, dataset)
+    print(f"Iteration: {iteration}, Mutation rate: {mutation_rate}%, Right: {right}, Wrong: {wrong}")
 
 
 async def main(iterations: int):
@@ -221,7 +251,7 @@ async def main(iterations: int):
         tasks = [loop.run_in_executor(executor, run_ga, *[0, _+1]) for _ in range(iterations)]
         await asyncio.gather(*tasks)
 
-        print("\n\n\n")
+    print("\n\n\n")
 
     with ProcessPoolExecutor(max_workers=4) as executor:
         loop = asyncio.get_event_loop()
@@ -230,4 +260,4 @@ async def main(iterations: int):
 
 
 if __name__ == '__main__':
-    asyncio.run(main(10))
+    asyncio.run(main(100))

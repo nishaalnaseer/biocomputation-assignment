@@ -159,33 +159,21 @@ def mutate(individual, mutation_rate):
     return individual
 
 
-def genetic_recombination(
-        allele_positions: List[int],
-        parent1: List[float],
-        parent2: List[float],
-        mutation_rate: int
-) -> tuple[List[float], List[float],]:
+def genetic_recombination(parent1, parent2):
     """
-    Genetic recombination of selected alleles between two parents
-    :param mutation_rate: the rate at which the population is mutated
-    :param allele_positions: the positions of the parents to be swapped
-    :param parent1: lists
-    :param parent2: lists
-    :return: children
+    Perform genetic recombination (crossover) between two parent individuals.
+
+    Arguments:
+    parent1: First parent individual (numpy array).
+    parent2: Second parent individual (numpy array).
+
+    Returns:
+    child: Resulting child individual after crossover (numpy array).
     """
-
-    child1 = deepcopy(parent1)
-    child2 = deepcopy(parent2)
-
-    _child1 = mutate(child1, mutation_rate)
-    _child2 = mutate(child2, mutation_rate)
-
-    for allele_position in allele_positions:
-        swap_holder = _child1[allele_position]
-        _child1[allele_position] = _child2[allele_position]
-        _child2[allele_position] = swap_holder
-
-    return _child1, _child2,
+    # Assuming simple crossover by randomly selecting crossover point
+    crossover_point = random.randint(0, len(parent1))
+    child = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
+    return child
 
 
 def breed(population, mutation_rate):
@@ -197,7 +185,17 @@ def breed(population, mutation_rate):
             child += np.random.uniform(-0.1, 0.1, size=child.shape)
 
     np.clip(children, 0, 1, out=children)
-    return children
+
+    num_children = len(children)
+    num_parents = len(population)
+    array = []
+
+    for _ in range(num_children):
+        parent1, parent2 = random.sample(range(num_parents), 2)
+        child = genetic_recombination(children[parent1], children[parent2])
+        array.append(child)
+
+    return np.array(array)
 
 
 def sigmoid(x):
